@@ -16,7 +16,7 @@ on:
       packages:
         description: Space-separated package list
         required: true
-        default: luci luci-ssl kmod-ikconfig
+        default: luci luci-ssl
         type: string
 
 concurrency:
@@ -28,7 +28,7 @@ jobs:
     name: build ${{ inputs.openwrt_ref }}
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
 
     env:
       OPENWRT_REF: ${{ inputs.openwrt_ref }}
@@ -110,8 +110,7 @@ jobs:
           "$GITHUB_WORKSPACE/builder/scripts/render-config.sh" \
             "$GITHUB_WORKSPACE/openwrt" \
             "$GITHUB_WORKSPACE/builder/config/x86-64-generic.seed" \
-            "$GITHUB_WORKSPACE/builder/config/kernel-bpf-btf.fragment" \
-            "$PACKAGES"
+            "$GITHUB_WORKSPACE/builder/config/kernel-bpf-btf.fragment"
           cp "$GITHUB_WORKSPACE/openwrt/.config" "$GITHUB_WORKSPACE/openwrt/.config.seeded"
 
       - name: Update feeds and finalize .config
@@ -121,6 +120,17 @@ jobs:
           cd openwrt
           ./scripts/feeds update -a
           ./scripts/feeds install -a
+          for pkg in $PACKAGES; do
+            [ -n "$pkg" ] || continue
+            if [[ "$pkg" == -* ]]; then
+              sym="${pkg#-}"
+              sym="${sym//-/_}"
+              printf '# CONFIG_PACKAGE_%s is not set\n' "$sym" >> .config
+            else
+              sym="${pkg//-/_}"
+              printf 'CONFIG_PACKAGE_%s=y\n' "$sym" >> .config
+            fi
+          done
           make defconfig
           cp .config ../final.config
 
@@ -168,3 +178,16 @@ jobs:
         with:
           name: openwrt-${{ inputs.openwrt_ref }}-config
           path: artifacts/
+
+      - name: Publish release assets
+        uses: softprops/action-gh-release@v2
+        if: ${{ success() }}
+        with:
+          tag_name: ${{ inputs.openwrt_ref }}
+          name: OpenWrt ${{ inputs.openwrt_ref }}
+          make_latest: false
+          files: |
+            openwrt/bin/targets/x86/64/*combined-efi.img.gz
+            openwrt/bin/targets/x86/64/sha256sums
+            artifacts/.config
+            artifacts/openwrt.final.config
