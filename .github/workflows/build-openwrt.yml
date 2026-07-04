@@ -100,16 +100,42 @@ jobs:
           echo "--- builder/config dir ---"
           ls -la builder/config || true
 
+      - name: Resolve official config.buildinfo URL
+        shell: bash
+        run: |
+          set -euo pipefail
+          ref="${OPENWRT_REF#refs/tags/}"
+          version="${ref#v}"
+
+          if [[ "$ref" =~ ^v[0-9] ]]; then
+            config_url="https://downloads.openwrt.org/releases/${version}/targets/x86/64/config.buildinfo"
+          elif [[ "$ref" =~ ^(SNAPSHOT|snapshot|master|main)$ ]]; then
+            config_url="https://downloads.openwrt.org/snapshots/targets/x86/64/config.buildinfo"
+          else
+            echo "unsupported openwrt_ref for official config.buildinfo: $OPENWRT_REF" >&2
+            exit 1
+          fi
+
+          echo "CONFIG_BUILDINFO_URL=$config_url" >> "$GITHUB_ENV"
+
+      - name: Download official config.buildinfo
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL "$CONFIG_BUILDINFO_URL" -o "$GITHUB_WORKSPACE/builder/config.buildinfo"
+
       - name: Configure build
         shell: bash
         run: |
           set -euo pipefail
           test -f "$GITHUB_WORKSPACE/builder/scripts/render-config.sh"
+          test -f "$GITHUB_WORKSPACE/builder/scripts/validate-config.sh"
           chmod +x "$GITHUB_WORKSPACE/builder/scripts/render-config.sh"
+          chmod +x "$GITHUB_WORKSPACE/builder/scripts/validate-config.sh"
           export ROOTFS_SIZE_MB
           "$GITHUB_WORKSPACE/builder/scripts/render-config.sh" \
             "$GITHUB_WORKSPACE/openwrt" \
-            "$GITHUB_WORKSPACE/builder/config/x86-64-generic.seed" \
+            "$GITHUB_WORKSPACE/builder/config.buildinfo" \
             "$GITHUB_WORKSPACE/builder/config/kernel-bpf-btf.fragment"
           cp "$GITHUB_WORKSPACE/openwrt/.config" "$GITHUB_WORKSPACE/openwrt/.config.seeded"
 
@@ -132,7 +158,15 @@ jobs:
             fi
           done
           make defconfig
+          cat ../builder/config/kernel-post-defconfig.fragment >> .config
           cp .config ../final.config
+
+      - name: Validate final .config for dae
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$GITHUB_WORKSPACE/builder/scripts/validate-config.sh" \
+            "$GITHUB_WORKSPACE/final.config"
 
       - name: Download sources
         shell: bash
