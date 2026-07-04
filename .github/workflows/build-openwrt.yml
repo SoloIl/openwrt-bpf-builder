@@ -52,9 +52,12 @@ jobs:
           sudo apt-get clean
           sudo apt-get update
           sudo apt-get -y install \
-            build-essential clang flex bison g++ gawk gettext git libncurses5-dev \
-            libssl-dev python3-setuptools rsync swig unzip zlib1g-dev file wget curl ccache \
-            python3 libelf-dev xz-utils jq axel zstd
+            bison build-essential ccache clang curl file flex \
+            g++ g++-multilib gawk gcc-multilib genisoimage gettext git git-core gosu \
+            libdw-dev libelf-dev libncurses5-dev libssl-dev locales pv pwgen python3 \
+            python3-cryptography python3-pip python3-pyelftools python3-setuptools \
+            python3-venv qemu-utils rsync signify-openbsd subversion swig unzip wget \
+            zlib1g-dev zstd jq axel clang libelf-dev zlib1g-dev
 
       - name: Checkout builder repo
         uses: actions/checkout@v4
