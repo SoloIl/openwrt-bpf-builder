@@ -84,18 +84,33 @@ jobs:
             openwrt-${{ runner.os }}-${{ inputs.openwrt_ref }}-
             openwrt-${{ runner.os }}-
 
+      - name: Debug workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "PWD=$PWD"
+          echo "GITHUB_WORKSPACE=$GITHUB_WORKSPACE"
+          ls -la
+          echo "--- top level ---"
+          find . -maxdepth 2 -type f | sort
+          echo "--- scripts dir ---"
+          ls -la scripts || true
+          echo "--- config dir ---"
+          ls -la config || true
+
       - name: Configure build
         shell: bash
         run: |
           set -euo pipefail
-          chmod +x scripts/render-config.sh
+          test -f "$GITHUB_WORKSPACE/scripts/render-config.sh"
+          chmod +x "$GITHUB_WORKSPACE/scripts/render-config.sh"
           export ROOTFS_SIZE_MB
-          ./scripts/render-config.sh \
-            "$PWD/openwrt" \
-            "$PWD/config/x86-64-generic.seed" \
-            "$PWD/config/kernel-bpf-btf.fragment" \
+          "$GITHUB_WORKSPACE/scripts/render-config.sh" \
+            "$GITHUB_WORKSPACE/openwrt" \
+            "$GITHUB_WORKSPACE/config/x86-64-generic.seed" \
+            "$GITHUB_WORKSPACE/config/kernel-bpf-btf.fragment" \
             "$PACKAGES"
-          cp openwrt/.config openwrt/.config.seeded
+          cp "$GITHUB_WORKSPACE/openwrt/.config" "$GITHUB_WORKSPACE/openwrt/.config.seeded"
 
       - name: Update feeds and finalize .config
         shell: bash
