@@ -38,6 +38,8 @@ jobs:
     steps:
       - name: Checkout builder repo
         uses: actions/checkout@v4
+        with:
+          path: builder
 
       - name: Maximize build space
         uses: easimon/maximize-build-space@master
@@ -71,15 +73,15 @@ jobs:
       - name: Prepare cache directories
         shell: bash
         run: |
-          mkdir -p .cache/ccache .cache/dl
+          mkdir -p builder/.cache/ccache builder/.cache/dl
 
       - name: Cache downloads and ccache
         uses: actions/cache@v4
         with:
           path: |
-            .cache/ccache
-            .cache/dl
-          key: openwrt-${{ runner.os }}-${{ inputs.openwrt_ref }}-${{ hashFiles('config/**', 'scripts/**', '.github/workflows/build-openwrt.yml') }}
+            builder/.cache/ccache
+            builder/.cache/dl
+          key: openwrt-${{ runner.os }}-${{ inputs.openwrt_ref }}-${{ hashFiles('builder/config/**', 'builder/scripts/**', 'builder/.github/workflows/build-openwrt.yml') }}
           restore-keys: |
             openwrt-${{ runner.os }}-${{ inputs.openwrt_ref }}-
             openwrt-${{ runner.os }}-
@@ -92,23 +94,23 @@ jobs:
           echo "GITHUB_WORKSPACE=$GITHUB_WORKSPACE"
           ls -la
           echo "--- top level ---"
-          find . -maxdepth 2 -type f | sort
-          echo "--- scripts dir ---"
-          ls -la scripts || true
-          echo "--- config dir ---"
-          ls -la config || true
+          find . -maxdepth 3 -type f | sort
+          echo "--- builder/scripts dir ---"
+          ls -la builder/scripts || true
+          echo "--- builder/config dir ---"
+          ls -la builder/config || true
 
       - name: Configure build
         shell: bash
         run: |
           set -euo pipefail
-          test -f "$GITHUB_WORKSPACE/scripts/render-config.sh"
-          chmod +x "$GITHUB_WORKSPACE/scripts/render-config.sh"
+          test -f "$GITHUB_WORKSPACE/builder/scripts/render-config.sh"
+          chmod +x "$GITHUB_WORKSPACE/builder/scripts/render-config.sh"
           export ROOTFS_SIZE_MB
-          "$GITHUB_WORKSPACE/scripts/render-config.sh" \
+          "$GITHUB_WORKSPACE/builder/scripts/render-config.sh" \
             "$GITHUB_WORKSPACE/openwrt" \
-            "$GITHUB_WORKSPACE/config/x86-64-generic.seed" \
-            "$GITHUB_WORKSPACE/config/kernel-bpf-btf.fragment" \
+            "$GITHUB_WORKSPACE/builder/config/x86-64-generic.seed" \
+            "$GITHUB_WORKSPACE/builder/config/kernel-bpf-btf.fragment" \
             "$PACKAGES"
           cp "$GITHUB_WORKSPACE/openwrt/.config" "$GITHUB_WORKSPACE/openwrt/.config.seeded"
 
@@ -127,15 +129,15 @@ jobs:
         run: |
           set -euo pipefail
           cd openwrt
-          mkdir -p ../.cache/dl
+          mkdir -p ../builder/.cache/dl
           rm -rf dl
-          ln -sfn "$PWD/../.cache/dl" dl
+          ln -sfn "$PWD/../builder/.cache/dl" dl
           make download -j"$(nproc)" || make download -j1 V=s
 
       - name: Build
         shell: bash
         env:
-          CCACHE_DIR: ${{ github.workspace }}/.cache/ccache
+          CCACHE_DIR: ${{ github.workspace }}/builder/.cache/ccache
         run: |
           set -euo pipefail
           cd openwrt
