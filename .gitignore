@@ -1,0 +1,7 @@
+dl/
+build_dir/
+staging_dir/
+tmp/
+bin/
+ccache/
+*.log

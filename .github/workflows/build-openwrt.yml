@@ -1,0 +1,156 @@
+name: Build OpenWrt x86_64 BPF
+
+on:
+  workflow_dispatch:
+    inputs:
+      openwrt_ref:
+        description: OpenWrt source ref
+        required: true
+        default: v25.12.5
+        type: string
+      rootfs_size_mb:
+        description: RootFS partition size in MB
+        required: true
+        default: "4096"
+        type: string
+      packages:
+        description: Space-separated package list
+        required: true
+        default: luci luci-ssl kmod-ikconfig
+        type: string
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build ${{ inputs.openwrt_ref }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    env:
+      OPENWRT_REF: ${{ inputs.openwrt_ref }}
+      ROOTFS_SIZE_MB: ${{ inputs.rootfs_size_mb }}
+      PACKAGES: ${{ inputs.packages }}
+
+    steps:
+      - name: Checkout builder repo
+        uses: actions/checkout@v4
+
+      - name: Maximize build space
+        uses: easimon/maximize-build-space@master
+        with:
+          root-reserve-mb: 20480
+          swap-size-mb: 8192
+          remove-dotnet: "true"
+          remove-android: "true"
+          remove-haskell: "true"
+
+      - name: Install build dependencies
+        shell: bash
+        run: |
+          sudo apt update
+          sudo apt -y install \
+            ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential \
+            bzip2 ccache clang cmake cpio curl device-tree-compiler ecj fastjar file flex \
+            g++ gawk gcc-multilib gettext genisoimage git gperf haveged help2man intltool \
+            libc6-dev-i386 libelf-dev libfuse-dev libglib2.0-dev libgmp3-dev libltdl-dev \
+            libmpc-dev libmpfr-dev libncurses5-dev libncursesw5-dev libpython3-dev \
+            libreadline-dev libssl-dev libtool lrzsz mkisofs msmtp nano ninja-build p7zip \
+            p7zip-full patch pkgconf python3 python3-pip python3-ply python3-docutils \
+            python3-setuptools qemu-utils rsync scons squashfs-tools subversion swig texinfo \
+            uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev zstd
+
+      - name: Checkout OpenWrt source
+        uses: actions/checkout@v4
+        with:
+          repository: openwrt/openwrt
+          ref: ${{ inputs.openwrt_ref }}
+          path: openwrt
+          fetch-depth: 1
+
+      - name: Prepare cache directories
+        shell: bash
+        run: |
+          mkdir -p .cache/ccache .cache/dl
+
+      - name: Cache downloads and ccache
+        uses: actions/cache@v4
+        with:
+          path: |
+            .cache/ccache
+            .cache/dl
+          key: openwrt-${{ runner.os }}-${{ inputs.openwrt_ref }}-${{ hashFiles('config/**', 'scripts/**', '.github/workflows/build-openwrt.yml') }}
+          restore-keys: |
+            openwrt-${{ runner.os }}-${{ inputs.openwrt_ref }}-
+            openwrt-${{ runner.os }}-
+
+      - name: Configure build
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x scripts/render-config.sh
+          export ROOTFS_SIZE_MB
+          ./scripts/render-config.sh \
+            "$PWD/openwrt" \
+            "$PWD/config/x86-64-generic.seed" \
+            "$PWD/config/kernel-bpf-btf.fragment" \
+            "$PACKAGES"
+          cp openwrt/.config openwrt/.config.seeded
+
+      - name: Update feeds and finalize .config
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd openwrt
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+          make defconfig
+          cp .config ../final.config
+
+      - name: Download sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd openwrt
+          mkdir -p ../.cache/dl
+          rm -rf dl
+          ln -sfn "$PWD/../.cache/dl" dl
+          make download -j"$(nproc)" || make download -j1 V=s
+
+      - name: Build
+        shell: bash
+        env:
+          CCACHE_DIR: ${{ github.workspace }}/.cache/ccache
+        run: |
+          set -euo pipefail
+          cd openwrt
+          export CCACHE_DIR
+          export CC="ccache gcc"
+          export CXX="ccache g++"
+          make -j"$(nproc)" V=s
+
+      - name: Prepare artifact bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          cp final.config artifacts/.config
+          cp openwrt/.config artifacts/openwrt.final.config
+          cp openwrt/bin/targets/x86/64/config.buildinfo artifacts/
+          cp openwrt/bin/targets/x86/64/feeds.buildinfo artifacts/
+          cp openwrt/bin/targets/x86/64/sha256sums artifacts/
+
+      - name: Upload target directory
+        uses: actions/upload-artifact@v4
+        with:
+          name: openwrt-${{ inputs.openwrt_ref }}-x86-64-targets
+          path: openwrt/bin/targets/x86/64/
+
+      - name: Upload config bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: openwrt-${{ inputs.openwrt_ref }}-config
+          path: artifacts/
