@@ -36,11 +36,6 @@ jobs:
       PACKAGES: ${{ inputs.packages }}
 
     steps:
-      - name: Checkout builder repo
-        uses: actions/checkout@v4
-        with:
-          path: builder
-
       - name: Maximize build space
         uses: easimon/maximize-build-space@master
         with:
@@ -61,6 +56,11 @@ jobs:
             subversion qemu-utils python3 python3-pip python3-ply python3-docutils \
             libelf-dev autoconf automake libtool pkgconf cmake ninja-build device-tree-compiler \
             texinfo patch xz-utils tar
+
+      - name: Checkout builder repo
+        uses: actions/checkout@v4
+        with:
+          path: builder
 
       - name: Checkout OpenWrt source
         uses: actions/checkout@v4
