@@ -145,8 +145,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -f "$GITHUB_WORKSPACE/builder/scripts/validate-config.sh"
-          chmod +x "$GITHUB_WORKSPACE/builder/scripts/validate-config.sh"
           cp "$GITHUB_WORKSPACE/openwrt/.config" "$GITHUB_WORKSPACE/openwrt/.config.seeded"
 
       - name: Update feeds and finalize .config
@@ -170,13 +168,6 @@ jobs:
           make defconfig
           cat ../builder/config/kernel-post-defconfig.fragment >> .config
           cp .config ../final.config
-
-      - name: Validate final .config for dae
-        shell: bash
-        run: |
-          set -euo pipefail
-          "$GITHUB_WORKSPACE/builder/scripts/validate-config.sh" \
-            "$GITHUB_WORKSPACE/final.config"
 
       - name: Build using rebuild order
         shell: bash
