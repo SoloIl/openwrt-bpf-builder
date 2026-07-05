@@ -23,6 +23,9 @@ concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
   cancel-in-progress: false
 
+env:
+  DELETE_USELESS_FILES: false
+
 jobs:
   build:
     name: build ${{ inputs.openwrt_ref }}
@@ -37,6 +40,7 @@ jobs:
 
     steps:
       - name: Maximize build space
+        if: env.DELETE_USELESS_FILES == 'true' && !cancelled()
         uses: easimon/maximize-build-space@master
         with:
           root-reserve-mb: 4096
