@@ -204,15 +204,25 @@ jobs:
           mkdir -p artifacts
           cp final.config artifacts/.config
           cp openwrt/.config artifacts/openwrt.final.config
+          kernel_config=$(find openwrt/build_dir -path '*/linux-*/linux-*/.config' | head -n1)
+          if [ -z "$kernel_config" ]; then
+            echo "failed to locate kernel .config" >&2
+            exit 1
+          fi
+          cp "$kernel_config" artifacts/kernel.config
           cp openwrt/bin/targets/x86/64/config.buildinfo artifacts/
           cp openwrt/bin/targets/x86/64/feeds.buildinfo artifacts/
           cp openwrt/bin/targets/x86/64/sha256sums artifacts/
 
-      - name: Upload target directory
+      - name: Upload image bundle
         uses: actions/upload-artifact@v4
         with:
-          name: openwrt-${{ inputs.openwrt_ref }}-x86-64-targets
-          path: openwrt/bin/targets/x86/64/
+          name: openwrt-${{ inputs.openwrt_ref }}-x86-64-images
+          path: |
+            openwrt/bin/targets/x86/64/*combined-efi.img.gz
+            openwrt/bin/targets/x86/64/sha256sums
+            openwrt/bin/targets/x86/64/config.buildinfo
+            openwrt/bin/targets/x86/64/feeds.buildinfo
 
       - name: Upload config bundle
         uses: actions/upload-artifact@v4
@@ -232,3 +242,6 @@ jobs:
             openwrt/bin/targets/x86/64/sha256sums
             artifacts/.config
             artifacts/openwrt.final.config
+            artifacts/kernel.config
+            artifacts/config.buildinfo
+            artifacts/feeds.buildinfo
