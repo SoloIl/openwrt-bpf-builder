@@ -78,6 +78,7 @@ The workflow also uploads:
 - `requested-packages.txt`
 - `apk-build-key.pub` (public package-signing key; never the private key)
 - the matching target package directory containing kernel-module APKs and index
+- `target-packages.tar.zst` and its SHA-256 file as durable release assets
 
 The build fails if any package in `config/router-packages.list` or the
 additional `packages` input is unavailable or dropped by `make defconfig`.
@@ -86,6 +87,12 @@ The image and target package index are produced by the same build. The image
 trusts that build's package-signing key; the exported public key is retained for
 offline recovery and verification. Third-party feed keys, including Fantastic
 Packages keys, are intentionally not added.
+
+`CONFIG_ALL_KMODS=y` keeps ordinary OpenWrt kernel modules available as matching
+APKs even when they are not embedded in the image. The release package bundle
+therefore acts as the companion kmod repository for that exact custom kernel
+ABI. A new image is required only when a future feature needs a kernel option
+that is not available as a module in the saved package bundle.
 
 ## Notes
 

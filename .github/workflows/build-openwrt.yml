@@ -240,6 +240,10 @@ jobs:
           cp requested-packages.txt artifacts/
           test -f openwrt/key-build.pub
           cp openwrt/key-build.pub artifacts/apk-build-key.pub
+          tar --zstd -cf artifacts/target-packages.tar.zst \
+            -C openwrt/bin/targets/x86/64 packages
+          (cd artifacts && \
+            sha256sum target-packages.tar.zst > target-packages.tar.zst.sha256)
 
       - name: Validate kernel.config for dae
         shell: bash
@@ -288,3 +292,7 @@ jobs:
             artifacts/kernel.config
             artifacts/config.buildinfo
             artifacts/feeds.buildinfo
+            artifacts/requested-packages.txt
+            artifacts/apk-build-key.pub
+            artifacts/target-packages.tar.zst
+            artifacts/target-packages.tar.zst.sha256
