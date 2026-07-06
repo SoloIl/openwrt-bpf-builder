@@ -214,6 +214,14 @@ jobs:
           cp openwrt/bin/targets/x86/64/feeds.buildinfo artifacts/
           cp openwrt/bin/targets/x86/64/sha256sums artifacts/
 
+      - name: Validate kernel.config for dae
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x "$GITHUB_WORKSPACE/builder/scripts/validate-kernel-config.sh"
+          "$GITHUB_WORKSPACE/builder/scripts/validate-kernel-config.sh" \
+            "$GITHUB_WORKSPACE/artifacts/kernel.config"
+
       - name: Upload image bundle
         uses: actions/upload-artifact@v4
         with:
