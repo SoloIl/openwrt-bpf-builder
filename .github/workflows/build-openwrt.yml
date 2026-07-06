@@ -238,8 +238,6 @@ jobs:
           cp openwrt/bin/targets/x86/64/feeds.buildinfo artifacts/
           cp openwrt/bin/targets/x86/64/sha256sums artifacts/
           cp requested-packages.txt artifacts/
-          test -f openwrt/key-build.pub
-          cp openwrt/key-build.pub artifacts/apk-build-key.pub
           tar --zstd -cf artifacts/target-packages.tar.zst \
             -C openwrt/bin/targets/x86/64 packages
           (cd artifacts && \
@@ -293,6 +291,5 @@ jobs:
             artifacts/config.buildinfo
             artifacts/feeds.buildinfo
             artifacts/requested-packages.txt
-            artifacts/apk-build-key.pub
             artifacts/target-packages.tar.zst
             artifacts/target-packages.tar.zst.sha256
