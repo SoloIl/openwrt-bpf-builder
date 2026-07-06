@@ -14,7 +14,7 @@ on:
         default: "4096"
         type: string
       packages:
-        description: Space-separated package list
+        description: Additional space-separated package list
         required: false
         default: ""
         type: string
@@ -159,7 +159,11 @@ jobs:
           cd openwrt
           ./scripts/feeds update -a
           ./scripts/feeds install -a
-          for pkg in $PACKAGES; do
+          baseline_packages="$(sed -e 's/#.*//' -e '/^[[:space:]]*$/d' \
+            ../builder/config/router-packages.list | tr '\n' ' ')"
+          all_packages="$baseline_packages $PACKAGES"
+          printf '%s\n' $all_packages | sort -u > ../requested-packages.txt
+          for pkg in $all_packages; do
             [ -n "$pkg" ] || continue
             if [[ "$pkg" == -* ]]; then
               sym="${pkg#-}"
@@ -172,6 +176,24 @@ jobs:
           done
           make defconfig
           cat ../builder/config/kernel-post-defconfig.fragment >> .config
+          missing=0
+          while IFS= read -r pkg; do
+            if [[ "$pkg" == -* ]]; then
+              sym="${pkg#-}"
+              sym="${sym//-/_}"
+              if ! grep -Fqx "# CONFIG_PACKAGE_${sym} is not set" .config; then
+                echo "excluded package remained selected: ${pkg#-} (CONFIG_PACKAGE_${sym})" >&2
+                missing=1
+              fi
+            else
+              sym="${pkg//-/_}"
+              if ! grep -Eq "^CONFIG_PACKAGE_${sym}=[ym]$" .config; then
+                echo "required package was not selected: $pkg (CONFIG_PACKAGE_${sym})" >&2
+                missing=1
+              fi
+            fi
+          done < ../requested-packages.txt
+          [ "$missing" -eq 0 ]
           cp .config ../final.config
 
       - name: Build using rebuild order
@@ -213,6 +235,9 @@ jobs:
           cp openwrt/bin/targets/x86/64/config.buildinfo artifacts/
           cp openwrt/bin/targets/x86/64/feeds.buildinfo artifacts/
           cp openwrt/bin/targets/x86/64/sha256sums artifacts/
+          cp requested-packages.txt artifacts/
+          test -f openwrt/key-build.pub
+          cp openwrt/key-build.pub artifacts/apk-build-key.pub
 
       - name: Validate kernel.config for dae
         shell: bash
@@ -237,6 +262,14 @@ jobs:
         with:
           name: openwrt-${{ inputs.openwrt_ref }}-config
           path: artifacts/
+
+      - name: Upload matching target packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: openwrt-${{ inputs.openwrt_ref }}-x86-64-target-packages
+          path: |
+            openwrt/bin/targets/x86/64/packages/
+          if-no-files-found: error
 
       - name: Publish release assets
         uses: softprops/action-gh-release@v2
