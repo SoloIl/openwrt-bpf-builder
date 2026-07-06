@@ -167,9 +167,13 @@ jobs:
             [ -n "$pkg" ] || continue
             if [[ "$pkg" == -* ]]; then
               sym="${pkg#-}"
+              sed -i -e "/^CONFIG_PACKAGE_${sym}=/d" \
+                -e "/^# CONFIG_PACKAGE_${sym} is not set$/d" .config
               printf '# CONFIG_PACKAGE_%s is not set\n' "$sym" >> .config
             else
               sym="$pkg"
+              sed -i -e "/^CONFIG_PACKAGE_${sym}=/d" \
+                -e "/^# CONFIG_PACKAGE_${sym} is not set$/d" .config
               printf 'CONFIG_PACKAGE_%s=y\n' "$sym" >> .config
             fi
           done
