@@ -183,14 +183,14 @@ jobs:
           while IFS= read -r pkg; do
             if [[ "$pkg" == -* ]]; then
               sym="${pkg#-}"
-              if ! grep -Fqx "# CONFIG_PACKAGE_${sym} is not set" .config; then
-                echo "excluded package remained selected: ${pkg#-} (CONFIG_PACKAGE_${sym})" >&2
+              if grep -Fqx "CONFIG_PACKAGE_${sym}=y" .config; then
+                echo "excluded package remained embedded in image: ${pkg#-} (CONFIG_PACKAGE_${sym}=y)" >&2
                 missing=1
               fi
             else
               sym="$pkg"
-              if ! grep -Eq "^CONFIG_PACKAGE_${sym}=[ym]$" .config; then
-                echo "required package was not selected: $pkg (CONFIG_PACKAGE_${sym})" >&2
+              if ! grep -Fqx "CONFIG_PACKAGE_${sym}=y" .config; then
+                echo "required package was not embedded in image: $pkg (CONFIG_PACKAGE_${sym}=y)" >&2
                 missing=1
               fi
             fi
