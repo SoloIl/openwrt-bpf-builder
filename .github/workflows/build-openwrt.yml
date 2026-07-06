@@ -167,10 +167,9 @@ jobs:
             [ -n "$pkg" ] || continue
             if [[ "$pkg" == -* ]]; then
               sym="${pkg#-}"
-              sym="${sym//-/_}"
               printf '# CONFIG_PACKAGE_%s is not set\n' "$sym" >> .config
             else
-              sym="${pkg//-/_}"
+              sym="$pkg"
               printf 'CONFIG_PACKAGE_%s=y\n' "$sym" >> .config
             fi
           done
@@ -180,13 +179,12 @@ jobs:
           while IFS= read -r pkg; do
             if [[ "$pkg" == -* ]]; then
               sym="${pkg#-}"
-              sym="${sym//-/_}"
               if ! grep -Fqx "# CONFIG_PACKAGE_${sym} is not set" .config; then
                 echo "excluded package remained selected: ${pkg#-} (CONFIG_PACKAGE_${sym})" >&2
                 missing=1
               fi
             else
-              sym="${pkg//-/_}"
+              sym="$pkg"
               if ! grep -Eq "^CONFIG_PACKAGE_${sym}=[ym]$" .config; then
                 echo "required package was not selected: $pkg (CONFIG_PACKAGE_${sym})" >&2
                 missing=1
